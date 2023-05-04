@@ -19,7 +19,7 @@ app.use(cors({
     origin: '*'
 }));
 app.post('/', (request, response) => {
-    response.json({ info: 'API endpoint for EDFDDP' });
+    response.json({ info: 'API endpoint for add2stuff' });
 });
 
 
