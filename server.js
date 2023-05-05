@@ -26,7 +26,7 @@ app.post('/', (request, response) => {
 getCategories = (request, response) => {
     pool.query('SELECT * FROM categories', (error, results) => {
         if (error || results == null) {
-            console.log(error);
+            console.log(error != null? error: "gc query returned null.");
             return response.json([]);
         }
         return response.json(results.rows);
@@ -74,6 +74,152 @@ createCategory = (request, response) => {
         return response.json({status: -1, message: 'Missing body in request'});
     }
 }
+
+getCardsWithCategories = (request, response) => {
+    pool.query('SELECT * FROM card_categories', (error, results) => {
+        if (error || results == null) {
+            console.log(error != null? error: " gcwc query returned null.");
+            return response.json(null);
+        }
+        let cat_dict = {};
+        for (let card of results.rows) {
+            if (cat_dict[card.category] !== undefined) {
+                cat_dict[card.category].push(card.name);
+            }
+            else {
+                cat_dict[card.category] = [card.name];
+            }
+        }
+        return response.json(cat_dict);
+    });
+}
+
+getCategoriesForCard = (request, response) => {
+    if (request.body && request.body.name) {
+        pool.query('SELECT category FROM card_categories WHERE name = $1', [request.body.name], (error, results) => {
+            if (error || results == null) {
+                console.log(error != null? error: "gcfc query returned null.");
+                return response.json([]);
+            }
+            return response.json(results.rows);
+        });
+    }
+    else {
+        return response.json([]);
+    }
+}
+
+addCardToCategory = (request, response) => {
+    if (request.body && request.body.name && request.body.category) {
+        pool.query('SELECT * FROM card_categories WHERE name = $1 AND category = $2', [request.body.name, request.body.category], (error, results) => {
+            if (error) {
+                console.log(error);
+                return response.json({status: -1, message: error});
+            }
+            if (results && results.rows && results.rows.length > 0) {
+                return response.json({status: -1, message: 'Card is already included in that category'});
+            }
+            pool.query('INSERT INTO card_categories (name, category) VALUES ($1, $2)', [request.body.name, request.body.category], (er, re) => {
+                if (er) {
+                    console.log(er);
+                    return response.json({status: -1, message: er});
+                }
+                return response.json({status: 1, message: 'Card added to category successfully'});
+            });
+        });
+    }
+    else {
+        return response.json({status: -1, message: 'Missing body in request'});
+    }
+}
+
+removeCardFromCategory = (request, response) => {
+    if (request.body && request.body.name && request.body.category) {
+        pool.query('DELETE FROM card_categories WHERE name = $1 AND category = $2', [request.body.name, request.body.category], (error, results) => {
+            if (error) {
+                console.log(error);
+                return response.json({status: -1, message: error});
+            }
+            return response.json({status: 1, message: 'Card removed from category successfully'});
+        })
+    }
+    else {
+        return response.json({status: -1, message: 'Missing body in request'});
+    }
+}
+
+getImageForCard = (request, response) => {
+    if (request.body && request.body.name) {
+        pool.query('SELECT * FROM card_images WHERE name = $1', [request.body.name], (error, results) => {
+            if (error) {
+                console.log(error);
+                return response.json(null);
+            }
+            if (results.rows && results.rows.length > 0) {
+                return response.json(results.rows[0]);
+            }
+            else {
+                return response.json(null);
+            }
+        })
+    }
+    else {
+        return response.json(null);
+    }
+}
+
+setImageForCard = (request, response) => {
+    if (request.body && request.body.name) {
+        pool.query('SELECT * FROM card_images WHERE name = $1', [request.body.name], (error, results) => {
+          if (error) {
+              console.log(error);
+              return response.json({status: -1, message: error});
+          }
+          else {
+              if (results.rows && results.rows.length > 0) {
+                  pool.query('UPDATE card_images SET image = $1, back_image = $2 WHERE name = $3',
+                      [request.body.name, request.body.image, request.body.back_image], (er, re) => {
+                          if (er) {
+                              console.log(er);
+                              return response.json({status: -1, message: er});
+                          }
+                          return response.json({status: 1, message: 'Card image updated successfully'});
+                      });
+              }
+              else {
+                  pool.query('INSERT INTO card_images (name, image, back_image) VALUES ($1, $2, $3) RETURNING *',
+                      [request.body.name, request.body.image, request.body.back_image], (er, re) => {
+                          if (er) {
+                              console.log(er);
+                              return response.json({status: -1, message: er});
+                          }
+                          return response.json({status: 1, message: 'Card image created successfully'});
+                      });
+              }
+          }
+        })
+    }
+    else {
+        return response.json({status: -1, message: 'Missing body in request'});
+    }
+}
+
+deleteCardImage = (request, response) => {
+    if (request.body && request.body.name) {
+        pool.query('DELETE FROM card_images WHERE name = $1', [request.body.name], (error, results) => {
+            if (error) {
+                console.log(error);
+                return response.json({status: -1, message: error});
+            }
+            return response.json({status: 1, message: 'Card image deleted successfully'});
+        });
+    }
+    else {
+        return response.json({status: -1, message: 'Missing body in request'});
+    }
+}
+
+
 
 app.get('/api/categories', getCategories);
 app.put('/api/categories/:id', updateCategory);
